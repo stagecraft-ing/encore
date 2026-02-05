@@ -70,6 +70,9 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Install cargo-zigbuild
+        run: cargo install cargo-zigbuild
+
       - name: Prepare patches and reset to upstream
         run: |
           upstream_ref=$(cat upstream.ref)
