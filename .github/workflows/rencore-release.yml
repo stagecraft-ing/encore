@@ -140,6 +140,7 @@ jobs:
           RENCORE_WEBDASH_URL: ${{ github.event.inputs.webdash_url }}
           RENCORE_DEVDASH_URL: ${{ github.event.inputs.devdash_url }}
           RENCORE_DOCS_URL: ${{ github.event.inputs.docs_url }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "🏗️ Building for ${{ matrix.goos }}/${{ matrix.goarch }}..."
 

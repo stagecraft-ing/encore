@@ -27,6 +27,22 @@ type Info struct {
 	Checksum []byte // The checksum of the release
 }
 
+// githubHTTPGet performs an HTTP GET request with optional GitHub authentication.
+// It checks for GITHUB_TOKEN environment variable and adds it as Authorization header.
+func githubHTTPGet(url string) (*http.Response, error) {
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Add GitHub token if available (for higher rate limits in CI)
+	if token := osPkg.Getenv("GITHUB_TOKEN"); token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+
+	return http.DefaultClient.Do(req)
+}
+
 // getGithubRelease fetches the latest release from Github for the given org and repo.
 func FetchInfo(cfg *buildconf.Config, org string, repo string) *Info {
 	rtn := &Info{}
@@ -40,7 +56,7 @@ func FetchInfo(cfg *buildconf.Config, org string, repo string) *Info {
 	}
 
 	// Download the latest releases
-	releasesResp := Must(http.Get(fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", org, repo)))
+	releasesResp := Must(githubHTTPGet(fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", org, repo)))
 	defer func() { _ = releasesResp.Body.Close() }()
 
 	if releasesResp.StatusCode != http.StatusOK {
@@ -108,7 +124,7 @@ func FetchInfo(cfg *buildconf.Config, org string, repo string) *Info {
 	}
 
 	// Download the checksum file
-	checksumResp := Must(http.Get(checksumFileURL))
+	checksumResp := Must(githubHTTPGet(checksumFileURL))
 	defer func() { _ = checksumResp.Body.Close() }()
 	if checksumResp.StatusCode != http.StatusOK {
 		Bailf("Unexpected response status code for checksum file: %s", checksumResp.Status)
@@ -150,7 +166,7 @@ func DownloadLatest(cfg *buildconf.Config, org, repo string) (pathToFile string)
 	}
 
 	// Now download the file
-	downloadResp := Must(http.Get(release.URL))
+	downloadResp := Must(githubHTTPGet(release.URL))
 	defer func() { _ = downloadResp.Body.Close() }()
 	if downloadResp.StatusCode != http.StatusOK {
 		Bailf("Unexpected response status code for release file: %s", downloadResp.Status)
