@@ -67,10 +67,14 @@ jobs:
           check-latest: true
           cache: true
 
-      - name: Verify upstream ref
+      - name: Reset to upstream ref
         run: |
-          echo "📍 Pinned to upstream commit: $(cat upstream.ref)"
+          upstream_ref=$(cat upstream.ref)
+          echo "📍 Upstream commit: $upstream_ref"
           echo "📍 Current HEAD: $(git rev-parse HEAD)"
+          echo "🔄 Resetting to upstream..."
+          git reset --hard "$upstream_ref"
+          echo "✅ Reset complete"
 
       - name: Apply patches
         run: |

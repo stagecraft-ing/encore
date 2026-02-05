@@ -2,12 +2,22 @@ diff --git a/cli/cmd/encore/version.go b/cli/cmd/encore/version.go
 index 7805c6ba..1f35bd87 100644
 --- a/cli/cmd/encore/version.go
 +++ b/cli/cmd/encore/version.go
-@@ -69,7 +69,7 @@ var versionUpdateCmd = &cobra.Command{
+@@ -8,6 +8,9 @@ import (
+ 	"strings"
+ 	"time"
+
++	"encr.dev/internal/conf"
++	"encr.dev/internal/urlutil"
++
+ 	"github.com/logrusorgru/aurora/v3"
+ 	"github.com/spf13/cobra"
+
+@@ -66,7 +69,7 @@ var versionUpdateCmd = &cobra.Command{
  	DisableFlagsInUseLine: true,
  	Run: func(cmd *cobra.Command, args []string) {
  		if version.Version == "" || strings.HasPrefix(version.Version, "devel") {
--			fatal("cannot update development build, first install Encore from %s", urlutil.JoinURL(conf.DocsBaseURL(), "/docs/install"))
+-			fatal("cannot update development build, first install Encore from https://encore.dev/docs/install")
 +			fatalf("cannot update development build, first install Encore from %s", urlutil.JoinURL(conf.DocsBaseURL(), "/docs/install"))
  		}
- 
+
  		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
