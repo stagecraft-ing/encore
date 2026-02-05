@@ -70,6 +70,23 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Add Rust targets for cross-compilation
+        run: |
+          case "${{ matrix.goos }}_${{ matrix.goarch }}" in
+            linux_amd64)
+              rustup target add x86_64-unknown-linux-gnu
+              ;;
+            linux_arm64)
+              rustup target add aarch64-unknown-linux-gnu
+              ;;
+            darwin_amd64)
+              rustup target add x86_64-apple-darwin
+              ;;
+            darwin_arm64)
+              rustup target add aarch64-apple-darwin
+              ;;
+          esac
+
       - name: Setup Zig
         uses: goto-bus-stop/setup-zig@v2
         with:
