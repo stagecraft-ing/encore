@@ -45,10 +45,10 @@ jobs:
           - builder: ubuntu-24.04
             goos: linux
             goarch: arm64
-          - builder: macos-13
+          - builder: macos-15-large
             goos: darwin
             goarch: amd64
-          - builder: macos-13
+          - builder: macos-latest
             goos: darwin
             goarch: arm64
 
@@ -111,7 +111,13 @@ jobs:
           cd dist/artifacts
           tarball="encore-${{ github.event.inputs.version }}-${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz"
           if [ -f "$tarball" ]; then
-            sha256sum "$tarball" > "$tarball.sha256"
+            # Use appropriate SHA256 command based on OS
+            if command -v sha256sum &> /dev/null; then
+              sha256sum "$tarball" > "$tarball.sha256"
+            else
+              # macOS uses shasum
+              shasum -a 256 "$tarball" > "$tarball.sha256"
+            fi
             sha256_value=$(cat "$tarball.sha256" | cut -d' ' -f1)
             echo "sha256=$sha256_value" >> $GITHUB_OUTPUT
             echo "✅ SHA256: $sha256_value"
