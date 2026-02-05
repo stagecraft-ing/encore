@@ -6,44 +6,31 @@ Subject: [PATCH] Fix GitHub API 403 Forbidden error with token authentication
 - Add GITHUB_TOKEN authentication to GitHub API requests
 - Create githubHTTPGet() helper with automatic token detection
 - Update all http.Get() calls to use authenticated requests
-- Add GITHUB_TOKEN to rencore-release workflow build step
 
 This fixes build failures with '403 Forbidden' errors when downloading
 encore-go releases from GitHub. The unauthenticated rate limit (60/hour)
-was being exceeded in CI. With authentication, the limit increases to
+is easily exceeded in CI. With authentication, the limit increases to
 5,000 requests per hour.
 
 Benefits:
 - Fixes CI builds that were failing with 403 errors
 - Enables parallel platform builds without rate limit issues
 - Backward compatible with local development (no token required)
-- Uses GitHub Actions' automatic GITHUB_TOKEN secret
+- Uses GitHub Actions' automatic GITHUB_TOKEN secret when available
 
 Modified:
 - pkg/encorebuild/githubrelease/githubrelease.go: Add auth helper
-- .github/workflows/rencore-release.yml: Add GITHUB_TOKEN env var
+
+Note: Workflows should set GITHUB_TOKEN environment variable for auth.
 
 Documentation:
 - .changes/encore-cli-patch/github-api-auth-fix.md
 
 Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
 ---
- .github/workflows/rencore-release.yml         |  1 +
  .../githubrelease/githubrelease.go            | 22 ++++++++++++++++---
- 2 files changed, 20 insertions(+), 3 deletions(-)
+ 1 file changed, 19 insertions(+), 3 deletions(-)
 
-diff --git a/.github/workflows/rencore-release.yml b/.github/workflows/rencore-release.yml
-index f56f4944..3314f9d4 100644
---- a/.github/workflows/rencore-release.yml
-+++ b/.github/workflows/rencore-release.yml
-@@ -140,6 +140,7 @@ jobs:
-           RENCORE_WEBDASH_URL: ${{ github.event.inputs.webdash_url }}
-           RENCORE_DEVDASH_URL: ${{ github.event.inputs.devdash_url }}
-           RENCORE_DOCS_URL: ${{ github.event.inputs.docs_url }}
-+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-         run: |
-           echo "🏗️ Building for ${{ matrix.goos }}/${{ matrix.goarch }}..."
- 
 diff --git a/pkg/encorebuild/githubrelease/githubrelease.go b/pkg/encorebuild/githubrelease/githubrelease.go
 index e2582ecc..bd3db8c6 100644
 --- a/pkg/encorebuild/githubrelease/githubrelease.go
