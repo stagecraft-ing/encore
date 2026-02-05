@@ -190,10 +190,10 @@ GOOS=linux GOARCH=amd64 go build ...
 GOOS=linux GOARCH=arm64 go build ...
 
 # Manual tarball creation
-tar -czf encore-v1.44.7-darwin_amd64.tar.gz encore
+tar -czf encore-v1.54.0-darwin_amd64.tar.gz encore
 
 # Manual SHA256 computation
-shasum -a 256 encore-v1.44.7-darwin_amd64.tar.gz
+shasum -a 256 encore-v1.54.0-darwin_amd64.tar.gz
 
 # Manual GitHub release creation
 # Manual Homebrew formula update

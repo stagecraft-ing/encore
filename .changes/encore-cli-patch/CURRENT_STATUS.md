@@ -226,7 +226,7 @@ cli/internal/login/login.go               # API key auth support
 
 ### Build Binary
 ```bash
-./scripts/build.sh --version v1.44.7
+./scripts/build.sh --version v1.54.0
 ```
 
 ### Test Locally

@@ -144,7 +144,7 @@ encore version
 
 #### macOS (Apple Silicon)
 ```bash
-VERSION=v1.44.7
+VERSION=v1.54.0
 curl -Lo encore.tar.gz "https://github.com/stagecraft-ing/encore/releases/download/$VERSION/encore-$VERSION-darwin_arm64.tar.gz"
 tar -xzf encore.tar.gz
 sudo mv encore /usr/local/bin/
@@ -152,7 +152,7 @@ sudo mv encore /usr/local/bin/
 
 #### macOS (Intel)
 ```bash
-VERSION=v1.44.7
+VERSION=v1.54.0
 curl -Lo encore.tar.gz "https://github.com/stagecraft-ing/encore/releases/download/$VERSION/encore-$VERSION-darwin_amd64.tar.gz"
 tar -xzf encore.tar.gz
 sudo mv encore /usr/local/bin/
@@ -160,7 +160,7 @@ sudo mv encore /usr/local/bin/
 
 #### Linux (x86_64)
 ```bash
-VERSION=v1.44.7
+VERSION=v1.54.0
 curl -Lo encore.tar.gz "https://github.com/stagecraft-ing/encore/releases/download/$VERSION/encore-$VERSION-linux_amd64.tar.gz"
 tar -xzf encore.tar.gz
 sudo mv encore /usr/local/bin/
@@ -168,7 +168,7 @@ sudo mv encore /usr/local/bin/
 
 #### Linux (ARM64)
 ```bash
-VERSION=v1.44.7
+VERSION=v1.54.0
 curl -Lo encore.tar.gz "https://github.com/stagecraft-ing/encore/releases/download/$VERSION/encore-$VERSION-linux_arm64.tar.gz"
 tar -xzf encore.tar.gz
 sudo mv encore /usr/local/bin/
@@ -207,7 +207,7 @@ cd encore
 ./scripts/apply_patches.sh
 
 # Build
-./scripts/build.sh --version v1.44.7
+./scripts/build.sh --version v1.54.0
 ```
 
 ### Creating a New Release
@@ -216,7 +216,7 @@ Releases are fully automated via GitHub Actions:
 
 1. Go to Actions → Rencore Release
 2. Click "Run workflow"
-3. Enter version (e.g., `v1.44.7`)
+3. Enter version (e.g., `v1.54.0`)
 4. (Optional) Customize URLs
 5. Click "Run workflow"
 
@@ -338,7 +338,7 @@ For urgent security updates:
 
 1. Update `upstream.ref` to the patched commit
 2. Verify patches apply cleanly
-3. Create a patch release (e.g., `v1.44.7-security.1`)
+3. Create a patch release (e.g., `v1.54.0-security.1`)
 4. Trigger release workflow
 
 ### Breaking Changes
@@ -348,7 +348,7 @@ If upstream introduces breaking changes that conflict with our patches:
 1. Update patches to resolve conflicts
 2. Test thoroughly
 3. Document breaking changes in release notes
-4. Bump minor version (e.g., `v1.44.0` → `v1.45.0`)
+4. Bump minor version (e.g., `v1.53.0` → `v1.54.0`)
 
 ## Troubleshooting
 
@@ -376,7 +376,7 @@ rm -rf dist/
 go version  # Should be 1.21+
 
 # Build with verbose output
-./scripts/build.sh --version v1.44.7 2>&1 | tee build.log
+./scripts/build.sh --version v1.54.0 2>&1 | tee build.log
 ```
 
 ### Formula Installation Issues

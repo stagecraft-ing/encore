@@ -39,7 +39,7 @@ elif [ "$ARCH" = "aarch64" ]; then
 fi
 
 # Download latest release
-VERSION=v1.44.7  # Check https://github.com/stagecraft-ing/encore/releases for latest
+VERSION=v1.54.0  # Check https://github.com/stagecraft-ing/encore/releases for latest
 curl -Lo encore.tar.gz "https://github.com/stagecraft-ing/encore/releases/download/$VERSION/encore-$VERSION-${OS}_${ARCH}.tar.gz"
 
 # Extract and install
@@ -56,7 +56,7 @@ encore version
 
 You should see output like:
 ```
-encore version v1.44.7
+encore version v1.54.0
 ```
 
 ## Step 3: Authenticate

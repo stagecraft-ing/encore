@@ -230,7 +230,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to update to (e.g., v1.44.7)'
+        description: 'Version to update to (e.g., v1.54.0)'
         required: true
       darwin_amd64_url:
         description: 'Darwin AMD64 tarball URL'
@@ -378,7 +378,7 @@ git push origin main  # or master, depending on default branch
 2. Click "Rencore Release"
 3. Click "Run workflow"
 4. Enter:
-   - Version: `v1.44.7` (or your desired version)
+   - Version: `v1.54.0` (or your desired version)
    - Leave URLs as defaults or customize
 5. Click "Run workflow"
 6. Wait ~15-30 minutes for completion
@@ -389,7 +389,7 @@ cd /Users/bart/Dev/_stagecraft_/encore
 
 # Test the build locally first
 ./scripts/apply_patches.sh
-./scripts/build.sh --version v1.44.7-test
+./scripts/build.sh --version v1.54.0-test
 
 # Check artifacts
 ls -lh dist/artifacts/

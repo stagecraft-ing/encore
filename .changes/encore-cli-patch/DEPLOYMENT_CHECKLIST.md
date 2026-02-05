@@ -89,7 +89,7 @@ cd homebrew-tap
 - [ ] Go to https://github.com/stagecraft-ing/encore/actions
 - [ ] Click "Rencore Release"
 - [ ] Click "Run workflow"
-- [ ] Enter version (e.g., `v1.44.7`)
+- [ ] Enter version (e.g., `v1.54.0`)
 - [ ] Keep default URLs or customize
 - [ ] Click "Run workflow"
 - [ ] Wait for completion (~15-30 min)
