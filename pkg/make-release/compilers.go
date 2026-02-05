@@ -251,9 +251,7 @@ func compilerSettings(os string, arch string) (cc, cxx string, envs, ldFlags []s
 		// We need to set some extra stuff if we're cross compiling to MacOS
 		if runtime.GOOS != "darwin" {
 			zigArgs = " -isysroot " + MacOSSDKPath + " -iwithsysroot /usr/include -iframeworkwithsysroot /System/Library/Frameworks"
-			envs = []string{
-				"CGO_LDFLAGS=--sysroot " + MacOSSDKPath + " -F/System/Library/Frameworks -L/usr/lib",
-			}
+			envs = append(envs, "CGO_LDFLAGS=--sysroot "+MacOSSDKPath+" -F/System/Library/Frameworks -L/usr/lib")
 		}
 
 	case "linux":
@@ -264,9 +262,7 @@ func compilerSettings(os string, arch string) (cc, cxx string, envs, ldFlags []s
 		case "arm64":
 			zigTarget = "aarch64-linux-gnu"
 			zigArgs = " -static -isystem /usr/include"
-			envs = []string{
-				"PKG_CONFIG_LIBDIR=/usr/lib/aarch64-linux-gnu/pkgconfig",
-			}
+			envs = append(envs, "PKG_CONFIG_LIBDIR=/usr/lib/aarch64-linux-gnu/pkgconfig")
 		default:
 			return "", "", nil, nil, errors.New("unsupported architecture for linux: " + arch)
 		}

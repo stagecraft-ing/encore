@@ -265,9 +265,7 @@ func compilerSettings(cfg *buildconf.Config) (cc, cxx string, envs, ldFlags []st
 		if cfg.IsCross() {
 			sdkPath := cfg.CrossMacSDKPath()
 			zigArgs = " -isysroot " + sdkPath + " -iwithsysroot /usr/include -iframeworkwithsysroot /System/Library/Frameworks"
-			envs = []string{
-				"CGO_LDFLAGS=--sysroot " + sdkPath + " -F/System/Library/Frameworks -L/usr/lib",
-			}
+			envs = append(envs, "CGO_LDFLAGS=--sysroot "+sdkPath+" -F/System/Library/Frameworks -L/usr/lib")
 		}
 
 	case "linux":
@@ -280,9 +278,7 @@ func compilerSettings(cfg *buildconf.Config) (cc, cxx string, envs, ldFlags []st
 		case "arm64":
 			zigTarget = "aarch64-linux-gnu.2.31"
 			zigArgs = " -static -isystem /usr/include"
-			envs = []string{
-				"PKG_CONFIG_LIBDIR=/usr/lib/aarch64-linux-gnu/pkgconfig",
-			}
+			envs = append(envs, "PKG_CONFIG_LIBDIR=/usr/lib/aarch64-linux-gnu/pkgconfig")
 		default:
 			Bailf("unsupported architecture for linux: %q", cfg.Arch)
 		}
