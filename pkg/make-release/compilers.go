@@ -226,6 +226,14 @@ func compilerSettings(os string, arch string) (cc, cxx string, envs, ldFlags []s
 	var zigArgs string
 	zigBinary := "zig" // pick it up off the path
 
+	// Set up Zig cache directory to avoid permission issues in CI
+	cacheDir, cacheErr := osPkg.UserCacheDir()
+	if cacheErr == nil {
+		zigCacheDir := filepath.Join(cacheDir, "encore-build-cache", "zig")
+		_ = osPkg.MkdirAll(zigCacheDir, 0755)
+		envs = append(envs, "ZIG_GLOBAL_CACHE_DIR="+zigCacheDir)
+	}
+
 	switch os {
 	case "darwin":
 		zigBinary = resolveZigBinary()
