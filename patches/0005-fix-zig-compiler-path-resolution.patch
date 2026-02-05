@@ -1,37 +1,37 @@
-From ff3e227759fe12576f54ff03b121021344bfeb83 Mon Sep 17 00:00:00 2001
+From 63379825459a474744157354516f09c26eacf43e Mon Sep 17 00:00:00 2001
 From: Bartek Kus <7887446+bartekus@users.noreply.github.com>
-Date: Thu, 5 Feb 2026 09:42:17 -0700
-Subject: [PATCH] Fix Zig compiler path resolution for macOS builds
+Date: Thu, 5 Feb 2026 12:44:40 -0700
+Subject: [PATCH] Fix Zig compiler path resolution and cache configuration
 
-- Add resolveZigBinary() helper with intelligent fallback chain
-- Check ENCORE_ZIG env var, legacy path, then system PATH
-- Fixes CI builds using setup-zig GitHub Action
-- Supports Homebrew and custom Zig installations
-- Maintains backward compatibility with legacy /usr/local/zig-0.9.1/zig
+- Add resolveZigBinary() with intelligent fallback chain
+  (ENCORE_ZIG → legacy path → PATH)
+- Configure ZIG_GLOBAL_CACHE_DIR to avoid permission issues in CI
+- Set cache to ~/.cache/encore-build-cache/zig
 
-This fixes build failures where CGO compilation fails with:
-'cgo: C compiler "/usr/local/zig-0.9.1/zig" not found'
+This fixes two build errors:
+1. "cgo: C compiler '/usr/local/zig-0.9.1/zig' not found"
+2. "unable to create compilation: AccessDenied"
 
-The code previously hardcoded the Zig path for macOS (darwin) builds,
-but CI workflows use setup-zig which installs Zig into PATH. The new
-resolveZigBinary() function implements a fallback chain that works with
-both CI (PATH-based) and local dev (Homebrew/custom paths).
+The hardcoded Zig path doesn't exist in CI or local dev environments.
+The new resolver checks multiple locations and falls back gracefully.
+
+Zig's cache directory requires write permissions. In restrictive CI
+environments, setting ZIG_GLOBAL_CACHE_DIR to a known writable location
+prevents AccessDenied errors.
 
 Modified:
-- pkg/encorebuild/compile/compile.go: Add resolver, update darwin case
-- pkg/make-release/compilers.go: Add resolver, update darwin case
+- pkg/encorebuild/compile/compile.go: Add resolver and cache config
+- pkg/make-release/compilers.go: Add resolver and cache config
 
 Documentation:
 - .changes/encore-cli-patch/zig-path-resolution-fix.md
-
-Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
 ---
- pkg/encorebuild/compile/compile.go | 30 +++++++++++++++++++++++++++++-
- pkg/make-release/compilers.go      | 30 +++++++++++++++++++++++++++++-
- 2 files changed, 58 insertions(+), 2 deletions(-)
+ pkg/encorebuild/compile/compile.go | 38 +++++++++++++++++++++++++++++-
+ pkg/make-release/compilers.go      | 38 +++++++++++++++++++++++++++++-
+ 2 files changed, 74 insertions(+), 2 deletions(-)
 
 diff --git a/pkg/encorebuild/compile/compile.go b/pkg/encorebuild/compile/compile.go
-index 4c2da4a0..05de2712 100644
+index 4c2da4a0..153953d1 100644
 --- a/pkg/encorebuild/compile/compile.go
 +++ b/pkg/encorebuild/compile/compile.go
 @@ -12,6 +12,34 @@ import (
@@ -69,8 +69,18 @@ index 4c2da4a0..05de2712 100644
  // GoBinary compiles a Go binary for the given OS and architecture with GCP enabled
  //
  // This file was inspired by the blog post: https://lucor.dev/post/cross-compile-golang-fyne-project-using-zig/
-@@ -213,7 +241,7 @@ func compilerSettings(cfg *buildconf.Config) (cc, cxx string, envs, ldFlags []st
+@@ -211,9 +239,17 @@ func compilerSettings(cfg *buildconf.Config) (cc, cxx string, envs, ldFlags []st
+ 	var zigArgs string
+ 	zigBinary := "zig"
  
++	// Set up Zig cache directory to avoid permission issues in CI
++	cacheDir, cacheErr := osPkg.UserCacheDir()
++	if cacheErr == nil {
++		zigCacheDir := filepath.Join(cacheDir, "encore-build-cache", "zig")
++		_ = osPkg.MkdirAll(zigCacheDir, 0755)
++		envs = append(envs, "ZIG_GLOBAL_CACHE_DIR="+zigCacheDir)
++	}
++
  	switch cfg.OS {
  	case "darwin":
 -		zigBinary = "/usr/local/zig-0.9.1/zig" // We need an explicit version of Zig for darwin (0.11.0 compiles, build causes runtime errors)
@@ -79,7 +89,7 @@ index 4c2da4a0..05de2712 100644
  
  		switch cfg.Arch {
 diff --git a/pkg/make-release/compilers.go b/pkg/make-release/compilers.go
-index 412c16eb..46f8441b 100644
+index 412c16eb..ffff3f66 100644
 --- a/pkg/make-release/compilers.go
 +++ b/pkg/make-release/compilers.go
 @@ -11,6 +11,34 @@ import (
@@ -117,8 +127,18 @@ index 412c16eb..46f8441b 100644
  // MacOSSDKPath is the path to where the MacOS SDK is located on Encore's builder systems
  const MacOSSDKPath = "/sdk"
  
-@@ -200,7 +228,7 @@ func compilerSettings(os string, arch string) (cc, cxx string, envs, ldFlags []s
+@@ -198,9 +226,17 @@ func compilerSettings(os string, arch string) (cc, cxx string, envs, ldFlags []s
+ 	var zigArgs string
+ 	zigBinary := "zig" // pick it up off the path
  
++	// Set up Zig cache directory to avoid permission issues in CI
++	cacheDir, cacheErr := osPkg.UserCacheDir()
++	if cacheErr == nil {
++		zigCacheDir := filepath.Join(cacheDir, "encore-build-cache", "zig")
++		_ = osPkg.MkdirAll(zigCacheDir, 0755)
++		envs = append(envs, "ZIG_GLOBAL_CACHE_DIR="+zigCacheDir)
++	}
++
  	switch os {
  	case "darwin":
 -		zigBinary = "/usr/local/zig-0.9.1/zig" // We need an explicit version of Zig for darwin (0.11.0 compiles, build causes runtime errors)
