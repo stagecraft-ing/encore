@@ -45,9 +45,6 @@ jobs:
           - builder: ubuntu-24.04
             goos: linux
             goarch: arm64
-          - builder: ubuntu-24.04
-            goos: windows
-            goarch: amd64
           - builder: macos-latest
             goos: darwin
             goarch: arm64
@@ -90,9 +87,6 @@ jobs:
               ;;
             darwin_arm64)
               rustup target add aarch64-apple-darwin
-              ;;
-            windows_amd64)
-              rustup target add x86_64-pc-windows-gnu
               ;;
           esac
 
