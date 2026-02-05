@@ -40,11 +40,11 @@ for patch_file in "$PATCHES_DIR"/*.patch; do
     if git apply --check "$patch_file" 2>/dev/null; then
         git apply "$patch_file"
         echo "   ✅ Applied: $patch_name"
-        ((success_count++))
+        success_count=$((success_count + 1))
     else
         echo "   ❌ Failed: $patch_name"
         echo "      Run 'git apply --check $patch_file' for details"
-        ((failed_count++))
+        failed_count=$((failed_count + 1))
     fi
     echo ""
 done
