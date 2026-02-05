@@ -93,7 +93,7 @@ jobs:
       - name: Apply patches
         run: |
           echo "🔧 Applying Rencore patches..."
-          ./scripts/apply_patches.sh
+          bash ./scripts/apply_patches.sh
 
       - name: Build Rencore
         env:
