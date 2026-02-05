@@ -67,13 +67,27 @@ jobs:
           check-latest: true
           cache: true
 
-      - name: Reset to upstream ref
+      - name: Prepare patches and reset to upstream
         run: |
           upstream_ref=$(cat upstream.ref)
           echo "📍 Upstream commit: $upstream_ref"
           echo "📍 Current HEAD: $(git rev-parse HEAD)"
+
+          # Save patches and scripts to temp location
+          echo "💾 Saving patches and scripts..."
+          cp -r patches /tmp/rencore-patches
+          cp -r scripts /tmp/rencore-scripts
+
+          # Reset to upstream
           echo "🔄 Resetting to upstream..."
           git reset --hard "$upstream_ref"
+
+          # Restore patches and scripts
+          echo "📦 Restoring patches and scripts..."
+          cp -r /tmp/rencore-patches ./patches
+          cp -r /tmp/rencore-scripts ./scripts
+          chmod +x ./scripts/apply_patches.sh
+
           echo "✅ Reset complete"
 
       - name: Apply patches
