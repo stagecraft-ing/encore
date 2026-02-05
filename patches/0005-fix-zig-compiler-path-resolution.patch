@@ -1,37 +1,36 @@
-From 63379825459a474744157354516f09c26eacf43e Mon Sep 17 00:00:00 2001
+From 8b9e6a63a7209e6888d3b158229fe93e9fac3a96 Mon Sep 17 00:00:00 2001
 From: Bartek Kus <7887446+bartekus@users.noreply.github.com>
-Date: Thu, 5 Feb 2026 12:44:40 -0700
+Date: Thu, 5 Feb 2026 14:18:40 -0700
 Subject: [PATCH] Fix Zig compiler path resolution and cache configuration
 
 - Add resolveZigBinary() with intelligent fallback chain
   (ENCORE_ZIG → legacy path → PATH)
 - Configure ZIG_GLOBAL_CACHE_DIR to avoid permission issues in CI
 - Set cache to ~/.cache/encore-build-cache/zig
+- Fix env var override bug that was discarding cache config
 
-This fixes two build errors:
+This fixes three build errors:
 1. "cgo: C compiler '/usr/local/zig-0.9.1/zig' not found"
 2. "unable to create compilation: AccessDenied"
+3. Environment variable being overwritten in darwin/linux-arm64 builds
 
-The hardcoded Zig path doesn't exist in CI or local dev environments.
-The new resolver checks multiple locations and falls back gracefully.
-
-Zig's cache directory requires write permissions. In restrictive CI
-environments, setting ZIG_GLOBAL_CACHE_DIR to a known writable location
-prevents AccessDenied errors.
+The critical bug was using envs = []string{} instead of append(),
+which overwrote ZIG_GLOBAL_CACHE_DIR when setting CGO_LDFLAGS for
+cross-compilation scenarios.
 
 Modified:
-- pkg/encorebuild/compile/compile.go: Add resolver and cache config
-- pkg/make-release/compilers.go: Add resolver and cache config
+- pkg/encorebuild/compile/compile.go: Add resolver, cache, fix append
+- pkg/make-release/compilers.go: Add resolver, cache, fix append
 
 Documentation:
 - .changes/encore-cli-patch/zig-path-resolution-fix.md
 ---
- pkg/encorebuild/compile/compile.go | 38 +++++++++++++++++++++++++++++-
- pkg/make-release/compilers.go      | 38 +++++++++++++++++++++++++++++-
- 2 files changed, 74 insertions(+), 2 deletions(-)
+ pkg/encorebuild/compile/compile.go | 46 +++++++++++++++++++++++++-----
+ pkg/make-release/compilers.go      | 46 +++++++++++++++++++++++++-----
+ 2 files changed, 78 insertions(+), 14 deletions(-)
 
 diff --git a/pkg/encorebuild/compile/compile.go b/pkg/encorebuild/compile/compile.go
-index 4c2da4a0..153953d1 100644
+index 4c2da4a..9b30302 100644
 --- a/pkg/encorebuild/compile/compile.go
 +++ b/pkg/encorebuild/compile/compile.go
 @@ -12,6 +12,34 @@ import (
@@ -88,8 +87,30 @@ index 4c2da4a0..153953d1 100644
  		ldFlags = []string{"-s", "-w"}
  
  		switch cfg.Arch {
+@@ -229,9 +265,7 @@ func compilerSettings(cfg *buildconf.Config) (cc, cxx string, envs, ldFlags []st
+ 		if cfg.IsCross() {
+ 			sdkPath := cfg.CrossMacSDKPath()
+ 			zigArgs = " -isysroot " + sdkPath + " -iwithsysroot /usr/include -iframeworkwithsysroot /System/Library/Frameworks"
+-			envs = []string{
+-				"CGO_LDFLAGS=--sysroot " + sdkPath + " -F/System/Library/Frameworks -L/usr/lib",
+-			}
++			envs = append(envs, "CGO_LDFLAGS=--sysroot "+sdkPath+" -F/System/Library/Frameworks -L/usr/lib")
+ 		}
+ 
+ 	case "linux":
+@@ -244,9 +278,7 @@ func compilerSettings(cfg *buildconf.Config) (cc, cxx string, envs, ldFlags []st
+ 		case "arm64":
+ 			zigTarget = "aarch64-linux-gnu.2.31"
+ 			zigArgs = " -static -isystem /usr/include"
+-			envs = []string{
+-				"PKG_CONFIG_LIBDIR=/usr/lib/aarch64-linux-gnu/pkgconfig",
+-			}
++			envs = append(envs, "PKG_CONFIG_LIBDIR=/usr/lib/aarch64-linux-gnu/pkgconfig")
+ 		default:
+ 			Bailf("unsupported architecture for linux: %q", cfg.Arch)
+ 		}
 diff --git a/pkg/make-release/compilers.go b/pkg/make-release/compilers.go
-index 412c16eb..ffff3f66 100644
+index 412c16e..ffdcae8 100644
 --- a/pkg/make-release/compilers.go
 +++ b/pkg/make-release/compilers.go
 @@ -11,6 +11,34 @@ import (
@@ -146,6 +167,28 @@ index 412c16eb..ffff3f66 100644
  		ldFlags = []string{"-s", "-w"}
  
  		switch arch {
+@@ -215,9 +251,7 @@ func compilerSettings(os string, arch string) (cc, cxx string, envs, ldFlags []s
+ 		// We need to set some extra stuff if we're cross compiling to MacOS
+ 		if runtime.GOOS != "darwin" {
+ 			zigArgs = " -isysroot " + MacOSSDKPath + " -iwithsysroot /usr/include -iframeworkwithsysroot /System/Library/Frameworks"
+-			envs = []string{
+-				"CGO_LDFLAGS=--sysroot " + MacOSSDKPath + " -F/System/Library/Frameworks -L/usr/lib",
+-			}
++			envs = append(envs, "CGO_LDFLAGS=--sysroot "+MacOSSDKPath+" -F/System/Library/Frameworks -L/usr/lib")
+ 		}
+ 
+ 	case "linux":
+@@ -228,9 +262,7 @@ func compilerSettings(os string, arch string) (cc, cxx string, envs, ldFlags []s
+ 		case "arm64":
+ 			zigTarget = "aarch64-linux-gnu"
+ 			zigArgs = " -static -isystem /usr/include"
+-			envs = []string{
+-				"PKG_CONFIG_LIBDIR=/usr/lib/aarch64-linux-gnu/pkgconfig",
+-			}
++			envs = append(envs, "PKG_CONFIG_LIBDIR=/usr/lib/aarch64-linux-gnu/pkgconfig")
+ 		default:
+ 			return "", "", nil, nil, errors.New("unsupported architecture for linux: " + arch)
+ 		}
 -- 
 2.50.1 (Apple Git-155)
 
