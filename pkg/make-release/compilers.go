@@ -11,6 +11,34 @@ import (
 	"github.com/cockroachdb/errors"
 )
 
+// resolveZigBinary returns the path to the Zig binary to use for compilation.
+// It checks in order: ENCORE_ZIG env var, legacy path, then PATH.
+// Environment Variables:
+//
+//	ENCORE_ZIG - Override Zig binary path (e.g., "/opt/homebrew/bin/zig")
+func resolveZigBinary() string {
+	// 1. Check ENCORE_ZIG environment variable
+	if zigPath := osPkg.Getenv("ENCORE_ZIG"); zigPath != "" {
+		if _, err := osPkg.Stat(zigPath); err == nil {
+			return zigPath
+		}
+	}
+
+	// 2. Check legacy hardcoded path for backward compatibility
+	legacyPath := "/usr/local/zig-0.9.1/zig"
+	if _, err := osPkg.Stat(legacyPath); err == nil {
+		return legacyPath
+	}
+
+	// 3. Try to find zig in PATH
+	if zigPath, err := exec.LookPath("zig"); err == nil {
+		return zigPath
+	}
+
+	// Fallback to "zig" and let exec provide error
+	return "zig"
+}
+
 // MacOSSDKPath is the path to where the MacOS SDK is located on Encore's builder systems
 const MacOSSDKPath = "/sdk"
 
@@ -200,7 +228,7 @@ func compilerSettings(os string, arch string) (cc, cxx string, envs, ldFlags []s
 
 	switch os {
 	case "darwin":
-		zigBinary = "/usr/local/zig-0.9.1/zig" // We need an explicit version of Zig for darwin (0.11.0 compiles, build causes runtime errors)
+		zigBinary = resolveZigBinary()
 		ldFlags = []string{"-s", "-w"}
 
 		switch arch {
