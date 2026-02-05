@@ -60,6 +60,15 @@ jobs:
         with:
           fetch-depth: 0  # Full history for version detection
 
+      - name: Install system dependencies
+        run: |
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            sudo apt-get update
+            sudo apt-get install -y protobuf-compiler
+          elif [ "$RUNNER_OS" == "macOS" ]; then
+            brew install protobuf
+          fi
+
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
