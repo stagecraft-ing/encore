@@ -88,11 +88,11 @@ jobs:
             linux_arm64)
               rustup target add aarch64-unknown-linux-gnu
               ;;
-            darwin_amd64)
-              rustup target add x86_64-apple-darwin
-              ;;
             darwin_arm64)
               rustup target add aarch64-apple-darwin
+              ;;
+            windows_amd64)
+              rustup target add x86_64-pc-windows-gnu
               ;;
           esac
 
