@@ -69,7 +69,7 @@ var versionUpdateCmd = &cobra.Command{
 	DisableFlagsInUseLine: true,
 	Run: func(cmd *cobra.Command, args []string) {
 		if version.Version == "" || strings.HasPrefix(version.Version, "devel") {
-			fatal("cannot update development build, first install Encore from %s", urlutil.JoinURL(conf.DocsBaseURL(), "/docs/install"))
+			fatalf("cannot update development build, first install Encore from %s", urlutil.JoinURL(conf.DocsBaseURL(), "/docs/install"))
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
