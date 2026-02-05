@@ -1,26 +1,44 @@
-# Zig Compiler Path Resolution Fix
+# Zig Compiler Path Resolution and Cache Configuration Fix
 
 **Date:** 2026-02-05
 **Status:** Implemented
 **Impact:** Build System, CI/CD
 
-## Problem
+## Problems
 
-The Encore build system hardcoded the Zig compiler path to `/usr/local/zig-0.9.1/zig` for macOS (darwin) builds. This caused build failures in two scenarios:
+The Encore build system had two Zig-related issues that caused build failures:
+
+### Problem 1: Hardcoded Zig Path
+
+The Zig compiler path was hardcoded to `/usr/local/zig-0.9.1/zig` for macOS (darwin) builds. This caused failures in:
 
 1. **CI/CD**: GitHub Actions workflows use the `setup-zig` action which installs Zig into the system PATH, not at the hardcoded location
 2. **Local Development**: Developers using Homebrew or other package managers have Zig installed at different paths (e.g., `/opt/homebrew/bin/zig`)
 
-### Error Message
+**Error Message:**
 ```
 cgo: C compiler "/usr/local/zig-0.9.1/zig" not found: exec: "/usr/local/zig-0.9.1/zig": stat /usr/local/zig-0.9.1/zig: no such file or directory
 ```
+
+### Problem 2: Zig Cache Permission Issues
+
+After fixing the path issue, a second error appeared in CI environments where Zig couldn't write to its default cache directory:
+
+**Error Message:**
+```
+# runtime/cgo
+error: unable to create compilation: AccessDenied
+```
+
+This occurs when Zig tries to write compilation cache to a restricted directory in CI environments. Zig's default cache location may not be writable in GitHub Actions runners.
 
 ### Affected Workflows
 - `.github/workflows/rencore-release.yml` - Uses Zig 0.13.0 via `setup-zig@v2`
 - Upstream `release.yml` - Uses Zig 0.10.1 via `setup-zig@7ab2955eb728f5440978d5824358023be3a2802d`
 
-## Solution
+## Solutions
+
+### Solution 1: Flexible Zig Binary Resolution
 
 Implemented a flexible Zig binary resolution mechanism with a fallback chain:
 
@@ -28,6 +46,15 @@ Implemented a flexible Zig binary resolution mechanism with a fallback chain:
 2. **Legacy path** - `/usr/local/zig-0.9.1/zig` for backward compatibility
 3. **System PATH** - Standard `exec.LookPath("zig")` lookup (works with CI workflows)
 4. **Fallback** - Returns `"zig"` and lets exec provide a clear error message
+
+### Solution 2: Zig Cache Directory Configuration
+
+Added `ZIG_GLOBAL_CACHE_DIR` environment variable configuration to ensure Zig writes to a writable location:
+
+- Cache directory: `~/.cache/encore-build-cache/zig` (or platform equivalent)
+- Created with `0755` permissions before compilation
+- Passed to Zig via `ZIG_GLOBAL_CACHE_DIR` environment variable
+- Prevents AccessDenied errors in restrictive CI environments
 
 ### Implementation
 
@@ -37,13 +64,17 @@ Added `resolveZigBinary()` helper function to both compilation files:
 
 1. **`pkg/encorebuild/compile/compile.go`**
    - Added `resolveZigBinary()` function (lines 15-41)
-   - Updated `compilerSettings()` to use `resolveZigBinary()` instead of hardcoded path (line 244)
+   - Added Zig cache directory setup in `compilerSettings()` (lines 237-243)
+   - Updated `compilerSettings()` to use `resolveZigBinary()` instead of hardcoded path
 
 2. **`pkg/make-release/compilers.go`**
    - Added `resolveZigBinary()` function (lines 14-40)
-   - Updated `compilerSettings()` to use `resolveZigBinary()` instead of hardcoded path (line 230)
+   - Added Zig cache directory setup in `compilerSettings()` (lines 223-229)
+   - Updated `compilerSettings()` to use `resolveZigBinary()` instead of hardcoded path
 
 ### Code Changes
+
+**1. Zig Binary Resolution:**
 
 ```go
 // resolveZigBinary returns the path to the Zig binary to use for compilation.
@@ -75,18 +106,59 @@ func resolveZigBinary() string {
 }
 ```
 
-Before:
+**2. Zig Cache Directory Configuration:**
+
 ```go
-case "darwin":
-	zigBinary = "/usr/local/zig-0.9.1/zig" // Hardcoded
-	ldFlags = []string{"-s", "-w"}
+// In compilerSettings() function, before the switch statement:
+// Set up Zig cache directory to avoid permission issues in CI
+cacheDir, cacheErr := osPkg.UserCacheDir()
+if cacheErr == nil {
+	zigCacheDir := filepath.Join(cacheDir, "encore-build-cache", "zig")
+	_ = osPkg.MkdirAll(zigCacheDir, 0755)
+	envs = append(envs, "ZIG_GLOBAL_CACHE_DIR="+zigCacheDir)
+}
 ```
 
-After:
+**Before (hardcoded path, no cache config):**
 ```go
-case "darwin":
-	zigBinary = resolveZigBinary() // Dynamic resolution
-	ldFlags = []string{"-s", "-w"}
+func compilerSettings(cfg *buildconf.Config) (cc, cxx string, envs, ldFlags []string) {
+	var zigTarget string
+	var zigArgs string
+	zigBinary := "zig"
+
+	switch cfg.OS {
+	case "darwin":
+		zigBinary = "/usr/local/zig-0.9.1/zig" // Hardcoded path
+		ldFlags = []string{"-s", "-w"}
+		// ... rest of darwin case
+	}
+	// ... rest of switch
+}
+```
+
+**After (dynamic resolution + cache config):**
+```go
+func compilerSettings(cfg *buildconf.Config) (cc, cxx string, envs, ldFlags []string) {
+	var zigTarget string
+	var zigArgs string
+	zigBinary := "zig"
+
+	// Set up Zig cache directory to avoid permission issues in CI
+	cacheDir, cacheErr := osPkg.UserCacheDir()
+	if cacheErr == nil {
+		zigCacheDir := filepath.Join(cacheDir, "encore-build-cache", "zig")
+		_ = osPkg.MkdirAll(zigCacheDir, 0755)
+		envs = append(envs, "ZIG_GLOBAL_CACHE_DIR="+zigCacheDir)
+	}
+
+	switch cfg.OS {
+	case "darwin":
+		zigBinary = resolveZigBinary() // Dynamic resolution
+		ldFlags = []string{"-s", "-w"}
+		// ... rest of darwin case
+	}
+	// ... rest of switch
+}
 ```
 
 ## Benefits
@@ -96,6 +168,8 @@ case "darwin":
 3. **Backward Compatible**: Still supports the legacy hardcoded path if it exists
 4. **Flexible**: Allows explicit override via `ENCORE_ZIG` environment variable
 5. **Clear Errors**: Falls back to "zig" command, letting exec provide descriptive error messages
+6. **No Permission Issues**: Zig cache in known writable location prevents AccessDenied errors
+7. **Isolated Builds**: Each build uses dedicated cache directory, avoiding conflicts
 
 ## Usage
 
