@@ -1,0 +1,131 @@
+From ff3e227759fe12576f54ff03b121021344bfeb83 Mon Sep 17 00:00:00 2001
+From: Bartek Kus <7887446+bartekus@users.noreply.github.com>
+Date: Thu, 5 Feb 2026 09:42:17 -0700
+Subject: [PATCH] Fix Zig compiler path resolution for macOS builds
+
+- Add resolveZigBinary() helper with intelligent fallback chain
+- Check ENCORE_ZIG env var, legacy path, then system PATH
+- Fixes CI builds using setup-zig GitHub Action
+- Supports Homebrew and custom Zig installations
+- Maintains backward compatibility with legacy /usr/local/zig-0.9.1/zig
+
+This fixes build failures where CGO compilation fails with:
+'cgo: C compiler "/usr/local/zig-0.9.1/zig" not found'
+
+The code previously hardcoded the Zig path for macOS (darwin) builds,
+but CI workflows use setup-zig which installs Zig into PATH. The new
+resolveZigBinary() function implements a fallback chain that works with
+both CI (PATH-based) and local dev (Homebrew/custom paths).
+
+Modified:
+- pkg/encorebuild/compile/compile.go: Add resolver, update darwin case
+- pkg/make-release/compilers.go: Add resolver, update darwin case
+
+Documentation:
+- .changes/encore-cli-patch/zig-path-resolution-fix.md
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+---
+ pkg/encorebuild/compile/compile.go | 30 +++++++++++++++++++++++++++++-
+ pkg/make-release/compilers.go      | 30 +++++++++++++++++++++++++++++-
+ 2 files changed, 58 insertions(+), 2 deletions(-)
+
+diff --git a/pkg/encorebuild/compile/compile.go b/pkg/encorebuild/compile/compile.go
+index 4c2da4a0..05de2712 100644
+--- a/pkg/encorebuild/compile/compile.go
++++ b/pkg/encorebuild/compile/compile.go
+@@ -12,6 +12,34 @@ import (
+ 	. "encr.dev/pkg/encorebuild/buildutil"
+ )
+ 
++// resolveZigBinary returns the path to the Zig binary to use for compilation.
++// It checks in order: ENCORE_ZIG env var, legacy path, then PATH.
++// Environment Variables:
++//
++//	ENCORE_ZIG - Override Zig binary path (e.g., "/opt/homebrew/bin/zig")
++func resolveZigBinary() string {
++	// 1. Check ENCORE_ZIG environment variable
++	if zigPath := osPkg.Getenv("ENCORE_ZIG"); zigPath != "" {
++		if _, err := osPkg.Stat(zigPath); err == nil {
++			return zigPath
++		}
++	}
++
++	// 2. Check legacy hardcoded path for backward compatibility
++	legacyPath := "/usr/local/zig-0.9.1/zig"
++	if _, err := osPkg.Stat(legacyPath); err == nil {
++		return legacyPath
++	}
++
++	// 3. Try to find zig in PATH
++	if zigPath, err := exec.LookPath("zig"); err == nil {
++		return zigPath
++	}
++
++	// Fallback to "zig" and let exec provide error
++	return "zig"
++}
++
+ // GoBinary compiles a Go binary for the given OS and architecture with GCP enabled
+ //
+ // This file was inspired by the blog post: https://lucor.dev/post/cross-compile-golang-fyne-project-using-zig/
+@@ -213,7 +241,7 @@ func compilerSettings(cfg *buildconf.Config) (cc, cxx string, envs, ldFlags []st
+ 
+ 	switch cfg.OS {
+ 	case "darwin":
+-		zigBinary = "/usr/local/zig-0.9.1/zig" // We need an explicit version of Zig for darwin (0.11.0 compiles, build causes runtime errors)
++		zigBinary = resolveZigBinary()
+ 		ldFlags = []string{"-s", "-w"}
+ 
+ 		switch cfg.Arch {
+diff --git a/pkg/make-release/compilers.go b/pkg/make-release/compilers.go
+index 412c16eb..46f8441b 100644
+--- a/pkg/make-release/compilers.go
++++ b/pkg/make-release/compilers.go
+@@ -11,6 +11,34 @@ import (
+ 	"github.com/cockroachdb/errors"
+ )
+ 
++// resolveZigBinary returns the path to the Zig binary to use for compilation.
++// It checks in order: ENCORE_ZIG env var, legacy path, then PATH.
++// Environment Variables:
++//
++//	ENCORE_ZIG - Override Zig binary path (e.g., "/opt/homebrew/bin/zig")
++func resolveZigBinary() string {
++	// 1. Check ENCORE_ZIG environment variable
++	if zigPath := osPkg.Getenv("ENCORE_ZIG"); zigPath != "" {
++		if _, err := osPkg.Stat(zigPath); err == nil {
++			return zigPath
++		}
++	}
++
++	// 2. Check legacy hardcoded path for backward compatibility
++	legacyPath := "/usr/local/zig-0.9.1/zig"
++	if _, err := osPkg.Stat(legacyPath); err == nil {
++		return legacyPath
++	}
++
++	// 3. Try to find zig in PATH
++	if zigPath, err := exec.LookPath("zig"); err == nil {
++		return zigPath
++	}
++
++	// Fallback to "zig" and let exec provide error
++	return "zig"
++}
++
+ // MacOSSDKPath is the path to where the MacOS SDK is located on Encore's builder systems
+ const MacOSSDKPath = "/sdk"
+ 
+@@ -200,7 +228,7 @@ func compilerSettings(os string, arch string) (cc, cxx string, envs, ldFlags []s
+ 
+ 	switch os {
+ 	case "darwin":
+-		zigBinary = "/usr/local/zig-0.9.1/zig" // We need an explicit version of Zig for darwin (0.11.0 compiles, build causes runtime errors)
++		zigBinary = resolveZigBinary()
+ 		ldFlags = []string{"-s", "-w"}
+ 
+ 		switch arch {
+-- 
+2.50.1 (Apple Git-155)
+

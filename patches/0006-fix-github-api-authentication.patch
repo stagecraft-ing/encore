@@ -1,0 +1,103 @@
+From 1a055b8d19da98754b0b66643a4b9cd9761f8676 Mon Sep 17 00:00:00 2001
+From: Bartek Kus <7887446+bartekus@users.noreply.github.com>
+Date: Thu, 5 Feb 2026 10:20:11 -0700
+Subject: [PATCH] Fix GitHub API 403 Forbidden error with token authentication
+
+- Add GITHUB_TOKEN authentication to GitHub API requests
+- Create githubHTTPGet() helper with automatic token detection
+- Update all http.Get() calls to use authenticated requests
+- Add GITHUB_TOKEN to rencore-release workflow build step
+
+This fixes build failures with '403 Forbidden' errors when downloading
+encore-go releases from GitHub. The unauthenticated rate limit (60/hour)
+was being exceeded in CI. With authentication, the limit increases to
+5,000 requests per hour.
+
+Benefits:
+- Fixes CI builds that were failing with 403 errors
+- Enables parallel platform builds without rate limit issues
+- Backward compatible with local development (no token required)
+- Uses GitHub Actions' automatic GITHUB_TOKEN secret
+
+Modified:
+- pkg/encorebuild/githubrelease/githubrelease.go: Add auth helper
+- .github/workflows/rencore-release.yml: Add GITHUB_TOKEN env var
+
+Documentation:
+- .changes/encore-cli-patch/github-api-auth-fix.md
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+---
+ .github/workflows/rencore-release.yml         |  1 +
+ .../githubrelease/githubrelease.go            | 22 ++++++++++++++++---
+ 2 files changed, 20 insertions(+), 3 deletions(-)
+
+diff --git a/.github/workflows/rencore-release.yml b/.github/workflows/rencore-release.yml
+index f56f4944..3314f9d4 100644
+--- a/.github/workflows/rencore-release.yml
++++ b/.github/workflows/rencore-release.yml
+@@ -140,6 +140,7 @@ jobs:
+           RENCORE_WEBDASH_URL: ${{ github.event.inputs.webdash_url }}
+           RENCORE_DEVDASH_URL: ${{ github.event.inputs.devdash_url }}
+           RENCORE_DOCS_URL: ${{ github.event.inputs.docs_url }}
++          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+         run: |
+           echo "🏗️ Building for ${{ matrix.goos }}/${{ matrix.goarch }}..."
+ 
+diff --git a/pkg/encorebuild/githubrelease/githubrelease.go b/pkg/encorebuild/githubrelease/githubrelease.go
+index e2582ecc..bd3db8c6 100644
+--- a/pkg/encorebuild/githubrelease/githubrelease.go
++++ b/pkg/encorebuild/githubrelease/githubrelease.go
+@@ -27,6 +27,22 @@ type Info struct {
+ 	Checksum []byte // The checksum of the release
+ }
+ 
++// githubHTTPGet performs an HTTP GET request with optional GitHub authentication.
++// It checks for GITHUB_TOKEN environment variable and adds it as Authorization header.
++func githubHTTPGet(url string) (*http.Response, error) {
++	req, err := http.NewRequest("GET", url, nil)
++	if err != nil {
++		return nil, err
++	}
++
++	// Add GitHub token if available (for higher rate limits in CI)
++	if token := osPkg.Getenv("GITHUB_TOKEN"); token != "" {
++		req.Header.Set("Authorization", "Bearer "+token)
++	}
++
++	return http.DefaultClient.Do(req)
++}
++
+ // getGithubRelease fetches the latest release from Github for the given org and repo.
+ func FetchInfo(cfg *buildconf.Config, org string, repo string) *Info {
+ 	rtn := &Info{}
+@@ -40,7 +56,7 @@ func FetchInfo(cfg *buildconf.Config, org string, repo string) *Info {
+ 	}
+ 
+ 	// Download the latest releases
+-	releasesResp := Must(http.Get(fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", org, repo)))
++	releasesResp := Must(githubHTTPGet(fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", org, repo)))
+ 	defer func() { _ = releasesResp.Body.Close() }()
+ 
+ 	if releasesResp.StatusCode != http.StatusOK {
+@@ -108,7 +124,7 @@ func FetchInfo(cfg *buildconf.Config, org string, repo string) *Info {
+ 	}
+ 
+ 	// Download the checksum file
+-	checksumResp := Must(http.Get(checksumFileURL))
++	checksumResp := Must(githubHTTPGet(checksumFileURL))
+ 	defer func() { _ = checksumResp.Body.Close() }()
+ 	if checksumResp.StatusCode != http.StatusOK {
+ 		Bailf("Unexpected response status code for checksum file: %s", checksumResp.Status)
+@@ -150,7 +166,7 @@ func DownloadLatest(cfg *buildconf.Config, org, repo string) (pathToFile string)
+ 	}
+ 
+ 	// Now download the file
+-	downloadResp := Must(http.Get(release.URL))
++	downloadResp := Must(githubHTTPGet(release.URL))
+ 	defer func() { _ = downloadResp.Body.Close() }()
+ 	if downloadResp.StatusCode != http.StatusOK {
+ 		Bailf("Unexpected response status code for release file: %s", downloadResp.Status)
+-- 
+2.50.1 (Apple Git-155)
+
