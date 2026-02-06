@@ -285,3 +285,4 @@ This confirms the fix benefits both this fork and the upstream project.
 - CI workflows successfully use Zig 0.10.1 and 0.13.0, suggesting this issue is resolved in newer versions
 - The fix maintains the ability to use a specific Zig version via `ENCORE_ZIG` if needed
 - No breaking changes - all existing build methods continue to work
+# Test comment to trigger CI
